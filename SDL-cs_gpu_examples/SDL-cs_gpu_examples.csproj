@@ -31,4 +31,40 @@
       </Content>
     </ItemGroup>
 
+    <!-- Precompile shaders during build -->
+    <Target Name="CompileShaders" BeforeTargets="Build" Condition="'$(SkipShaderCompilation)' != 'true'">
+      <PropertyGroup>
+        <NuGetPackageRoot Condition="'$(NuGetPackageRoot)' == ''">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
+        <SlangcPath>$(NuGetPackageRoot)slang.sdk\0.5.1\runtimes\win-x64\native\slangc.exe</SlangcPath>
+        <DxcPath>$(NuGetPackageRoot)microsoft.direct3d.dxc\1.8.2505.32\build\native\bin\x64</DxcPath>
+        <ShaderSourceDir>$(ProjectDir)Content\Shaders\Source</ShaderSourceDir>
+        <ShaderOutputDir>$(ProjectDir)Content\Shaders\Compiled</ShaderOutputDir>
+      </PropertyGroup>
+
+      <MakeDir Directories="$(ShaderOutputDir)\DXIL" Condition="!Exists('$(ShaderOutputDir)\DXIL')" />
+      <MakeDir Directories="$(ShaderOutputDir)\SPIRV" Condition="!Exists('$(ShaderOutputDir)\SPIRV')" />
+      <MakeDir Directories="$(ShaderOutputDir)\MSL" Condition="!Exists('$(ShaderOutputDir)\MSL')" />
+
+      <ItemGroup>
+        <VertexShaders Include="$(ShaderSourceDir)\*.vert.hlsl" />
+        <FragmentShaders Include="$(ShaderSourceDir)\*.frag.hlsl" />
+      </ItemGroup>
+
+      <!-- Compile vertex shaders -->
+      <Exec Command="set PATH=$(DxcPath);%PATH% &amp;&amp; &quot;$(SlangcPath)&quot; &quot;%(VertexShaders.Identity)&quot; -target dxil -profile sm_6_0 -stage vertex -entry main -o &quot;$(ShaderOutputDir)\DXIL\%(VertexShaders.Filename).dxil&quot;"
+            Condition="'@(VertexShaders)' != ''" WorkingDirectory="$(ProjectDir)" />
+      <Exec Command="&quot;$(SlangcPath)&quot; &quot;%(VertexShaders.Identity)&quot; -target spirv -profile glsl_450 -stage vertex -entry main -o &quot;$(ShaderOutputDir)\SPIRV\%(VertexShaders.Filename).spv&quot;"
+            Condition="'@(VertexShaders)' != ''" WorkingDirectory="$(ProjectDir)" />
+      <Exec Command="&quot;$(SlangcPath)&quot; &quot;%(VertexShaders.Identity)&quot; -target metal -stage vertex -entry main -o &quot;$(ShaderOutputDir)\MSL\%(VertexShaders.Filename).metal&quot;"
+            Condition="'@(VertexShaders)' != ''" WorkingDirectory="$(ProjectDir)" />
+
+      <!-- Compile fragment shaders -->
+      <Exec Command="set PATH=$(DxcPath);%PATH% &amp;&amp; &quot;$(SlangcPath)&quot; &quot;%(FragmentShaders.Identity)&quot; -target dxil -profile sm_6_0 -stage fragment -entry main -o &quot;$(ShaderOutputDir)\DXIL\%(FragmentShaders.Filename).dxil&quot;"
+            Condition="'@(FragmentShaders)' != ''" WorkingDirectory="$(ProjectDir)" />
+      <Exec Command="&quot;$(SlangcPath)&quot; &quot;%(FragmentShaders.Identity)&quot; -target spirv -profile glsl_450 -stage fragment -entry main -o &quot;$(ShaderOutputDir)\SPIRV\%(FragmentShaders.Filename).spv&quot;"
+            Condition="'@(FragmentShaders)' != ''" WorkingDirectory="$(ProjectDir)" />
+      <Exec Command="&quot;$(SlangcPath)&quot; &quot;%(FragmentShaders.Identity)&quot; -target metal -stage fragment -entry main -o &quot;$(ShaderOutputDir)\MSL\%(FragmentShaders.Filename).metal&quot;"
+            Condition="'@(FragmentShaders)' != ''" WorkingDirectory="$(ProjectDir)" />
+    </Target>
+
 </Project>

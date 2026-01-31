@@ -46,6 +46,28 @@ public static class Common
         };
     }
 
+    private static string GetCompiledShaderSubdir(ShaderFormat format)
+    {
+        return format switch
+        {
+            ShaderFormat.SPIRV => "SPIRV",
+            ShaderFormat.DXIL => "DXIL",
+            ShaderFormat.MSL => "MSL",
+            _ => "SPIRV"
+        };
+    }
+
+    private static string GetCompiledShaderExtension(ShaderFormat format)
+    {
+        return format switch
+        {
+            ShaderFormat.SPIRV => ".spv",
+            ShaderFormat.DXIL => ".dxil",
+            ShaderFormat.MSL => ".metal",
+            _ => ".spv"
+        };
+    }
+
     public static unsafe IntPtr LoadShader(
         IntPtr device,
         string shaderFilename,
@@ -54,12 +76,6 @@ public static class Common
         uint storageBufferCount = 0,
         uint storageTextureCount = 0)
     {
-        // Ensure SlangCompiler is initialized
-        if (!SlangCompiler.Init())
-        {
-            return IntPtr.Zero;
-        }
-
         // Auto-detect the shader stage from the file name
         ShaderStage stage;
         SDL.GPUShaderStage gpuStage;
@@ -79,29 +95,85 @@ public static class Common
             return IntPtr.Zero;
         }
 
-        // Try .slang first, then .hlsl
-        string fullPath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.slang");
-        if (!File.Exists(fullPath))
-        {
-            fullPath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.hlsl");
-        }
-
-        if (!File.Exists(fullPath))
-        {
-            Console.WriteLine($"Shader source file not found: {fullPath}");
-            return IntPtr.Zero;
-        }
-
-        var shaderSource = File.ReadAllText(fullPath);
-
         // Get the preferred shader format for this platform
         var format = SlangCompiler.GetPreferredFormat();
 
-        // Compile to the appropriate format using Slang
-        var bytecode = SlangCompiler.Compile(shaderSource, "main", stage, format);
+        // Try to load precompiled shader first
+        var compiledDir = GetCompiledShaderSubdir(format);
+        var compiledExt = GetCompiledShaderExtension(format);
+        var compiledPath = Path.Combine(BasePath, "Content", "Shaders", "Compiled", compiledDir, $"{shaderFilename}{compiledExt}");
+
+        byte[]? bytecode = null;
+
+        // Find source file path
+        string sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.slang");
+        if (!File.Exists(sourcePath))
+        {
+            sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.hlsl");
+        }
+
+        bool usePrecompiled = File.Exists(compiledPath);
+
+#if DEBUG
+        // In debug mode, recompile if source is newer than compiled
+        if (usePrecompiled && File.Exists(sourcePath))
+        {
+            var sourceTime = File.GetLastWriteTimeUtc(sourcePath);
+            var compiledTime = File.GetLastWriteTimeUtc(compiledPath);
+            if (sourceTime > compiledTime)
+            {
+                Console.WriteLine($"Shader source modified, recompiling: {shaderFilename}");
+                usePrecompiled = false;
+            }
+        }
+#endif
+
+        if (usePrecompiled)
+        {
+            // Use precompiled shader
+            bytecode = File.ReadAllBytes(compiledPath);
+        }
+        else
+        {
+            // Fall back to runtime compilation
+            if (!SlangCompiler.Init())
+            {
+                return IntPtr.Zero;
+            }
+
+            if (!File.Exists(sourcePath))
+            {
+                Console.WriteLine($"Shader not found (precompiled: {compiledPath}, source: {sourcePath})");
+                return IntPtr.Zero;
+            }
+
+            var shaderSource = File.ReadAllText(sourcePath);
+            bytecode = SlangCompiler.Compile(shaderSource, "main", stage, format);
+
+#if DEBUG
+            // Save recompiled shader for next run
+            if (bytecode != null)
+            {
+                try
+                {
+                    var outputDir = Path.GetDirectoryName(compiledPath);
+                    if (outputDir != null && !Directory.Exists(outputDir))
+                    {
+                        Directory.CreateDirectory(outputDir);
+                    }
+                    File.WriteAllBytes(compiledPath, bytecode);
+                }
+                catch
+                {
+                    // Ignore save errors
+                }
+            }
+#endif
+        }
+
         if (bytecode == null)
         {
-            Console.WriteLine($"Failed to compile shader: {shaderFilename}");
+            Console.WriteLine($"Failed to load shader: {shaderFilename}");
             return IntPtr.Zero;
         }
 
