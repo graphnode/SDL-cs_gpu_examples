@@ -21,6 +21,16 @@ dotnet build
 dotnet run --project SDL-cs_gpu_examples -- BasicTriangle
 ```
 
-## Shader Compilation
+## Shader System
 
-Shaders are compiled at runtime using [Slang](https://shader-slang.org/). HLSL source files in `Content/Shaders/Source/` are compiled to DXIL (D3D12) on Windows or SPIR-V (Vulkan) on Linux.
+### Precompiled Shaders (Default)
+Precompiled shaders are included in `Content/Shaders/Compiled/` for faster startup:
+- `SPIRV/` - Vulkan (Linux)
+- `DXIL/` - Direct3D 12 (Windows)
+- `MSL/` - Metal (macOS)
+
+### Runtime Compilation (Fallback)
+If precompiled shaders are not found, [Slang](https://shader-slang.org/) compiles HLSL sources from `Content/Shaders/Source/` at runtime.
+
+### Debug Auto-Recompile
+In DEBUG builds, modified source files are automatically recompiled and saved back to the Compiled directory.

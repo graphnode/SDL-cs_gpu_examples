@@ -31,7 +31,10 @@ Available examples: ClearScreen, ClearScreenMultiWindow, BasicTriangle, BasicVer
 ### Common.cs - Shared Utilities
 - **Vertex structs** with `[StructLayout(LayoutKind.Sequential)]` for GPU interop:
   - `PositionVertex`, `PositionColorVertex`, `PositionTextureVertex`
-- **LoadShader()** - Loads shader source and compiles at runtime using Slang
+- **LoadShader()** - Smart shader loading with precompilation support:
+  1. First tries to load precompiled shader from `Content/Shaders/Compiled/{SPIRV|DXIL|MSL}/`
+  2. Falls back to runtime Slang compilation if precompiled not found
+  3. In DEBUG builds: auto-recompiles if source is newer than compiled, saves result
 
 ### SlangCompiler.cs - Runtime Shader Compilation
 - Uses Slang.Sdk + Microsoft.Direct3D.DXC for runtime shader compilation
@@ -48,10 +51,12 @@ Each example is a static class with `Main()` method following this flow:
 5. Explicit resource cleanup
 
 ### Shader System
-- Source files: `Content/Shaders/Source/*.hlsl` (or `.slang`)
-- Shaders are compiled at runtime using Slang
+- **Source files**: `Content/Shaders/Source/*.hlsl` (or `.slang`)
+- **Precompiled shaders**: `Content/Shaders/Compiled/{SPIRV|DXIL|MSL}/`
+- Shaders can be precompiled for faster startup, with runtime Slang compilation as fallback
+- In DEBUG builds, source modifications trigger automatic recompilation
 - Slang is highly HLSL-compatible - existing HLSL shaders work with minimal/no changes
-- GPU backend: D3D12 (DXIL) on Windows, Vulkan (SPIR-V) on Linux
+- GPU backend: D3D12 (DXIL) on Windows, Vulkan (SPIR-V) on Linux, Metal (MSL) on macOS
 
 ## Key Conventions
 
