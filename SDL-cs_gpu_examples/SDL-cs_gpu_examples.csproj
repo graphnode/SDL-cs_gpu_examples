@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>SDL_cs_gpu_examples</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <StartupObject>SDL_cs_gpu_examples.Program</StartupObject>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="SDL3-CS" Version="3.5.0-preview.20260112-122507" />
+      <PackageReference Include="SDL3-CS.Native" Version="3.5.0-preview.20260112-123234" />
+      <PackageReference Include="Slang.Sdk" Version="0.5.1" />
+      <PackageReference Include="Microsoft.Direct3D.DXC" Version="1.8.2505.32" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="Content\**\*">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="..\CLAUDE.md">
+        <Link>CLAUDE.md</Link>
+      </Content>
+    </ItemGroup>
+
+</Project>
