@@ -43,52 +43,52 @@ struct Output_0
     else
     {
 
-#line 23
+
         if(VertexIndex_0 == 1U)
         {
             float2 _S2 = float2(1.0, -1.0);
             (&output_0)->Color_1 = float4(0.0, 1.0, 0.0, 1.0);
 
-#line 26
+#line 24
             pos_0 = _S2;
 
-#line 23
+#line 21
         }
         else
         {
 
-#line 30
+
             if(VertexIndex_0 == 2U)
             {
                 float2 _S3 = float2(0.0, 1.0);
                 (&output_0)->Color_1 = float4(0.0, 0.0, 1.0, 1.0);
 
-#line 33
+#line 29
                 pos_0 = _S3;
 
-#line 30
+#line 26
             }
 
-#line 23
+#line 21
         }
 
 #line 16
     }
 
-#line 37
+#line 31
     (&output_0)->Position_1 = float4(pos_0, 0.0, 1.0);
     Output_0 _S4 = output_0;
 
-#line 38
+#line 32
     thread main_Result_0 _S5;
 
-#line 38
+#line 32
     (&_S5)->Color_0 = _S4.Color_1;
 
-#line 38
+#line 32
     (&_S5)->Position_0 = _S4.Position_1;
 
-#line 38
+#line 32
     return _S5;
 }
 

@@ -26,15 +26,39 @@ public struct PositionTextureVertex(float x, float y, float z, float u, float v)
 
 public static class Common
 {
+    /// <summary>
+    /// Gets the base path of the application or project.
+    /// In release mode, this returns the directory of the executable,
+    /// and in debug mode, it traverses upwards from the executable's directory
+    /// to locate the project's root directory containing the .csproj file.
+    /// </summary>
     public static string BasePath
     {
         get
         {
-            field ??= SDL.GetBasePath() ?? AppContext.BaseDirectory;
+            string basePath = SDL.GetBasePath() ?? AppContext.BaseDirectory;
+#if DEBUG
+            // Start from the executable directory
+            var currentDir = new DirectoryInfo(basePath);
+
+            // Walk up to find the project root (contains .csproj file)
+            while (currentDir != null)
+            {
+                if (currentDir.GetFiles("*.csproj").Length > 0)
+                {
+                    field = currentDir.FullName;
+                    return field;
+                }
+                currentDir = currentDir.Parent;
+            }
+
+            // Fallback to BasePath if we can't find the project root
+#endif
+            field = basePath;
             return field;
         }
     }
-
+    
     private static SDL.GPUShaderFormat ToSdlFormat(ShaderFormat format)
     {
         return format switch
@@ -99,21 +123,19 @@ public static class Common
         var format = SlangCompiler.GetPreferredFormat();
 
         // Try to load precompiled shader first
-        var compiledDir = GetCompiledShaderSubdir(format);
-        var compiledExt = GetCompiledShaderExtension(format);
-        var compiledPath = Path.Combine(BasePath, "Content", "Shaders", "Compiled", compiledDir, $"{shaderFilename}{compiledExt}");
-
-        byte[]? bytecode = null;
-
-        // Find source file path
-        string sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.slang");
-        if (!File.Exists(sourcePath))
-        {
-            sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.hlsl");
-        }
+        string compiledDir = GetCompiledShaderSubdir(format);
+        string compiledExt = GetCompiledShaderExtension(format);
+        string compiledPath = Path.Combine(BasePath, "Content", "Shaders", "Compiled", compiledDir, $"{shaderFilename}{compiledExt}");
 
         bool usePrecompiled = File.Exists(compiledPath);
-
+        
+        byte[]? bytecode;
+        
+        // Find source file path in output directory and fallback to project directory
+        string sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.slang");
+        if (!File.Exists(sourcePath))
+            sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.hlsl");    
+        
 #if DEBUG
         // In debug mode, recompile if source is newer than compiled
         if (usePrecompiled && File.Exists(sourcePath))

@@ -50,6 +50,9 @@ public static class BasicTriangle
             return -1;
         }
 
+        // Initialize shader hot-reloader
+        ShaderHotReloader.Init();
+
         // Load shaders
         var vertexShader = Common.LoadShader(device, "RawTriangle.vert");
         if (vertexShader == IntPtr.Zero)
@@ -87,9 +90,26 @@ public static class BasicTriangle
             return -1;
         }
 
-        // Release shaders (pipelines keep references)
-        SDL.ReleaseGPUShader(device, vertexShader);
-        SDL.ReleaseGPUShader(device, fragmentShader);
+#if  DEBUG
+        // Track shaders for hot-reloading - recreate pipelines when shaders change
+        ShaderHotReloader.Track(vertexShader, "RawTriangle.vert", device, newHandle =>
+        {
+            vertexShader = newHandle;
+            SDL.ReleaseGPUGraphicsPipeline(device, fillPipeline);
+            SDL.ReleaseGPUGraphicsPipeline(device, linePipeline);
+            fillPipeline = CreatePipeline(device, vertexShader, fragmentShader, colorTargetDesc, SDL.GPUFillMode.Fill);
+            linePipeline = CreatePipeline(device, vertexShader, fragmentShader, colorTargetDesc, SDL.GPUFillMode.Line);
+        });
+
+        ShaderHotReloader.Track(fragmentShader, "SolidColor.frag", device, newHandle =>
+        {
+            fragmentShader = newHandle;
+            SDL.ReleaseGPUGraphicsPipeline(device, fillPipeline);
+            SDL.ReleaseGPUGraphicsPipeline(device, linePipeline);
+            fillPipeline = CreatePipeline(device, vertexShader, fragmentShader, colorTargetDesc, SDL.GPUFillMode.Fill);
+            linePipeline = CreatePipeline(device, vertexShader, fragmentShader, colorTargetDesc, SDL.GPUFillMode.Line);
+        });
+#endif
 
         // Print instructions
         Console.WriteLine("Press Left to toggle wireframe mode");
@@ -105,6 +125,11 @@ public static class BasicTriangle
         var running = true;
         while (running)
         {
+#if DEBUG
+            // Check for shader hot-reloads
+            ShaderHotReloader.CheckAndReload();
+#endif
+
             // Process events
             while (SDL.PollEvent(out var evt))
             {
@@ -187,8 +212,13 @@ public static class BasicTriangle
         }
 
         // Cleanup
+#if DEBUG
+        ShaderHotReloader.Quit();
+#endif
         SDL.ReleaseGPUGraphicsPipeline(device, fillPipeline);
         SDL.ReleaseGPUGraphicsPipeline(device, linePipeline);
+        SDL.ReleaseGPUShader(device, vertexShader);
+        SDL.ReleaseGPUShader(device, fragmentShader);
         SDL.ReleaseWindowFromGPUDevice(device, window);
         SDL.DestroyWindow(window);
         SDL.DestroyGPUDevice(device);

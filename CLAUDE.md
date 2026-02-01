@@ -58,6 +58,17 @@ Each example is a static class with `Main()` method following this flow:
 - Slang is highly HLSL-compatible - existing HLSL shaders work with minimal/no changes
 - GPU backend: D3D12 (DXIL) on Windows, Vulkan (SPIR-V) on Linux, Metal (MSL) on macOS
 
+### ShaderHotReloader.cs - Live Shader Reload (DEBUG only)
+- **FileSystemWatcher-based hot-reload**: Automatically detects shader source file changes
+- **Usage pattern**:
+  1. Call `ShaderHotReloader.Init()` at startup
+  2. Track shaders with `ShaderHotReloader.Track(handle, filename, device, onReloadedCallback)`
+  3. Call `ShaderHotReloader.CheckAndReload()` once per frame
+  4. Cleanup with `ShaderHotReloader.Quit()` at shutdown
+- **Callback pattern**: Provides reloaded shader handle via callback - typically used to recreate pipelines
+- **No-op in Release builds**: Compiles to empty stubs for zero runtime overhead
+- See `BasicTriangle.cs` for reference implementation
+
 ## Key Conventions
 
 - All GPU handles are `IntPtr`; check for `IntPtr.Zero` after creation
