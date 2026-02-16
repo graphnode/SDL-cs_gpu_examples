@@ -58,41 +58,8 @@ public static class Common
             return field;
         }
     }
-    
-    private static SDL.GPUShaderFormat ToSdlFormat(ShaderFormat format)
-    {
-        return format switch
-        {
-            ShaderFormat.SPIRV => SDL.GPUShaderFormat.SPIRV,
-            ShaderFormat.DXIL => SDL.GPUShaderFormat.DXIL,
-            ShaderFormat.MSL => SDL.GPUShaderFormat.MSL,
-            _ => SDL.GPUShaderFormat.SPIRV
-        };
-    }
 
-    private static string GetCompiledShaderSubdir(ShaderFormat format)
-    {
-        return format switch
-        {
-            ShaderFormat.SPIRV => "SPIRV",
-            ShaderFormat.DXIL => "DXIL",
-            ShaderFormat.MSL => "MSL",
-            _ => "SPIRV"
-        };
-    }
-
-    private static string GetCompiledShaderExtension(ShaderFormat format)
-    {
-        return format switch
-        {
-            ShaderFormat.SPIRV => ".spv",
-            ShaderFormat.DXIL => ".dxil",
-            ShaderFormat.MSL => ".metal",
-            _ => ".spv"
-        };
-    }
-
-    public static unsafe IntPtr LoadShader(
+    public static IntPtr LoadShader(
         IntPtr device,
         string shaderFilename,
         uint samplerCount = 0,
@@ -101,17 +68,14 @@ public static class Common
         uint storageTextureCount = 0)
     {
         // Auto-detect the shader stage from the file name
-        ShaderStage stage;
-        SDL.GPUShaderStage gpuStage;
+        SDL.GPUShaderStage stage;
         if (shaderFilename.Contains(".vert"))
         {
-            stage = ShaderStage.Vertex;
-            gpuStage = SDL.GPUShaderStage.Vertex;
+            stage = SDL.GPUShaderStage.Vertex;
         }
         else if (shaderFilename.Contains(".frag"))
         {
-            stage = ShaderStage.Fragment;
-            gpuStage = SDL.GPUShaderStage.Fragment;
+            stage = SDL.GPUShaderStage.Fragment;
         }
         else
         {
@@ -119,108 +83,57 @@ public static class Common
             return IntPtr.Zero;
         }
 
-        // Get the preferred shader format for this platform
-        var format = SlangCompiler.GetPreferredFormat();
-
-        // Try to load precompiled shader first
-        string compiledDir = GetCompiledShaderSubdir(format);
-        string compiledExt = GetCompiledShaderExtension(format);
-        string compiledPath = Path.Combine(BasePath, "Content", "Shaders", "Compiled", compiledDir, $"{shaderFilename}{compiledExt}");
-
-        bool usePrecompiled = File.Exists(compiledPath);
-        
-        byte[]? bytecode;
-        
-        // Find source file path in output directory and fallback to project directory
-        string sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.slang");
+        // Load HLSL source
+        string sourcePath = Path.Combine(BasePath, "Content", "Shaders", $"{shaderFilename}.hlsl");
         if (!File.Exists(sourcePath))
-            sourcePath = Path.Combine(BasePath, "Content", "Shaders", "Source", $"{shaderFilename}.hlsl");    
-        
-#if DEBUG
-        // In debug mode, recompile if source is newer than compiled
-        if (usePrecompiled && File.Exists(sourcePath))
         {
-            var sourceTime = File.GetLastWriteTimeUtc(sourcePath);
-            var compiledTime = File.GetLastWriteTimeUtc(compiledPath);
-            if (sourceTime > compiledTime)
-            {
-                Console.WriteLine($"Shader source modified, recompiling: {shaderFilename}");
-                usePrecompiled = false;
-            }
-        }
-#endif
-
-        if (usePrecompiled)
-        {
-            // Use precompiled shader
-            bytecode = File.ReadAllBytes(compiledPath);
-        }
-        else
-        {
-            // Fall back to runtime compilation
-            if (!SlangCompiler.Init())
-            {
-                return IntPtr.Zero;
-            }
-
-            if (!File.Exists(sourcePath))
-            {
-                Console.WriteLine($"Shader not found (precompiled: {compiledPath}, source: {sourcePath})");
-                return IntPtr.Zero;
-            }
-
-            var shaderSource = File.ReadAllText(sourcePath);
-            bytecode = SlangCompiler.Compile(shaderSource, "main", stage, format);
-
-#if DEBUG
-            // Save recompiled shader for next run
-            if (bytecode != null)
-            {
-                try
-                {
-                    var outputDir = Path.GetDirectoryName(compiledPath);
-                    if (outputDir != null && !Directory.Exists(outputDir))
-                    {
-                        Directory.CreateDirectory(outputDir);
-                    }
-                    File.WriteAllBytes(compiledPath, bytecode);
-                }
-                catch
-                {
-                    // Ignore save errors
-                }
-            }
-#endif
-        }
-
-        if (bytecode == null)
-        {
-            Console.WriteLine($"Failed to load shader: {shaderFilename}");
+            Console.WriteLine($"Shader source not found: {sourcePath}");
             return IntPtr.Zero;
         }
 
-        // Create GPU shader
-        fixed (byte* bytecodePtr = bytecode)
-        {
-            var createInfo = new SDL.GPUShaderCreateInfo
-            {
-                CodeSize = (nuint)bytecode.Length,
-                Code = (nint)bytecodePtr,
-                Format = ToSdlFormat(format),
-                Stage = gpuStage,
-                Entrypoint = "main",
-                NumSamplers = samplerCount,
-                NumUniformBuffers = uniformBufferCount,
-                NumStorageBuffers = storageBufferCount,
-                NumStorageTextures = storageTextureCount
-            };
+        var hlslSource = File.ReadAllText(sourcePath);
 
-            var shader = SDL.CreateGPUShader(device, in createInfo);
-            if (shader == IntPtr.Zero)
-            {
-                Console.WriteLine($"Failed to create GPU shader: {SDL.GetError()}");
-            }
-            return shader;
+        // Compile HLSL to SPIRV using ShaderCross
+        var hlslInfo = new ShaderCross.HLSLInfo
+        {
+            ManagedSource = hlslSource,
+            ManagedEntrypoint = "main",
+            ShaderStage = (ShaderCross.ShaderStage)stage,
+            Props = 0
+        };
+
+        var spirvBuffer = ShaderCross.CompileSPIRVFromHLSL(ref hlslInfo, out var spirvSize);
+        if (spirvBuffer == IntPtr.Zero)
+        {
+            Console.WriteLine($"Failed to compile HLSL to SPIRV: {SDL.GetError()}");
+            return IntPtr.Zero;
         }
+
+        // Create GPU shader from SPIRV using ShaderCross
+        var spirvInfo = new ShaderCross.SPIRVInfo
+        {
+            ByteCode = spirvBuffer,
+            ByteCodeSize = spirvSize,
+            ShaderStage = (ShaderCross.ShaderStage)stage,
+            ManagedEntrypoint = "main"
+        };
+
+        var resourceInfo = new ShaderCross.GraphicsShaderResourceInfo
+        {
+            NumSamplers = samplerCount,
+            NumStorageTextures = storageTextureCount,
+            NumStorageBuffers = storageBufferCount,
+            NumUniformBuffers = uniformBufferCount
+        };
+
+        var shader = ShaderCross.CompileGraphicsShaderFromSPIRV(device, ref spirvInfo, ref resourceInfo, 0);
+        SDL.Free(spirvBuffer);
+
+        if (shader == IntPtr.Zero)
+        {
+            Console.WriteLine($"Failed to create GPU shader: {SDL.GetError()}");
+        }
+
+        return shader;
     }
 }

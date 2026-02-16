@@ -1,3 +1,5 @@
+using SDL3;
+
 namespace SDL_cs_gpu_examples;
 
 public static class Program
@@ -22,10 +24,10 @@ public static class Program
 
     public static int Main(string[] args)
     {
-        // Initialize Slang compiler at startup
-        if (!SlangCompiler.Init())
+        // Initialize ShaderCross for runtime HLSL compilation
+        if (!ShaderCross.Init())
         {
-            Console.WriteLine("Failed to initialize Slang shader compiler");
+            Console.WriteLine($"Failed to initialize ShaderCross: {SDL.GetError()}");
             return 1;
         }
 
@@ -50,8 +52,7 @@ public static class Program
         }
         finally
         {
-            // Clean up Slang compiler
-            SlangCompiler.Quit();
+            ShaderCross.Quit();
         }
     }
 }

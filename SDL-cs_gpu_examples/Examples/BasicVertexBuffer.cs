@@ -40,9 +40,6 @@ public static class BasicVertexBuffer
             return -1;
         }
 
-        // Initialize shader hot-reloader
-        ShaderHotReloader.Init();
-
         // Load shaders
         var vertexShader = Common.LoadShader(device, "PositionColor.vert");
         if (vertexShader == IntPtr.Zero)
@@ -65,23 +62,6 @@ public static class BasicVertexBuffer
             Console.WriteLine("Failed to create pipeline!");
             return -1;
         }
-
-#if DEBUG
-        // Track shaders for hot-reloading - recreate pipeline when shaders change
-        ShaderHotReloader.Track(vertexShader, "PositionColor.vert", device, newHandle =>
-        {
-            vertexShader = newHandle;
-            SDL.ReleaseGPUGraphicsPipeline(device, pipeline);
-            pipeline = CreatePipeline(device, window, vertexShader, fragmentShader);
-        });
-
-        ShaderHotReloader.Track(fragmentShader, "SolidColor.frag", device, newHandle =>
-        {
-            fragmentShader = newHandle;
-            SDL.ReleaseGPUGraphicsPipeline(device, pipeline);
-            pipeline = CreatePipeline(device, window, vertexShader, fragmentShader);
-        });
-#endif
 
         // Create vertex buffer
         var vertexBufferCreateInfo = new SDL.GPUBufferCreateInfo
@@ -145,11 +125,6 @@ public static class BasicVertexBuffer
         var running = true;
         while (running)
         {
-#if DEBUG
-            // Check for shader hot-reloads
-            ShaderHotReloader.CheckAndReload();
-#endif
-
             while (SDL.PollEvent(out var evt))
             {
                 switch ((SDL.EventType)evt.Type)
@@ -209,9 +184,6 @@ public static class BasicVertexBuffer
         }
 
         // Cleanup
-#if DEBUG
-        ShaderHotReloader.Quit();
-#endif
         SDL.ReleaseGPUGraphicsPipeline(device, pipeline);
         SDL.ReleaseGPUShader(device, vertexShader);
         SDL.ReleaseGPUShader(device, fragmentShader);
