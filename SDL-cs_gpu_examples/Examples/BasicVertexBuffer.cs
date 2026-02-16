@@ -232,7 +232,7 @@ public static class BasicVertexBuffer
                 BufferSlot = 0,
                 Format = SDL.GPUVertexElementFormat.Ubyte4Norm,
                 Location = 1,
-                Offset = (uint)(sizeof(float) * 3)
+                Offset = sizeof(float) * 3
             }
         };
         var attrSize = Marshal.SizeOf<SDL.GPUVertexAttribute>();
