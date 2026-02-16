@@ -19,7 +19,7 @@ dotnet run --project SDL-cs_gpu_examples
 dotnet run --project SDL-cs_gpu_examples -- <ExampleName>
 ```
 
-Available examples: ClearScreen, ClearScreenMultiWindow, BasicTriangle, BasicVertexBuffer
+Available examples: ClearScreen, ClearScreenMultiWindow, BasicTriangle, BasicVertexBuffer, TexturedQuad, TexturedAnimatedQuad, CustomSampling, BlitMirror, GenerateMipmaps, Latency, BasicCompute, ComputeUniforms, ComputeSampler, CopyAndReadback, CopyConsistency, CullMode, BasicStencil, InstancedIndexed, WindowResize, TriangleMSAA, Clear3DSlice, DrawIndirect, Texture2DArray, Cubemap, Blit2DArray, BlitCube, DepthSampler, PullSpriteBatch, ComputeSpriteBatch
 
 ## Architecture
 
@@ -30,7 +30,7 @@ Available examples: ClearScreen, ClearScreenMultiWindow, BasicTriangle, BasicVer
 
 ### Common.cs - Shared Utilities
 - **Vertex structs** with `[StructLayout(LayoutKind.Sequential)]` for GPU interop:
-  - `PositionVertex`, `PositionColorVertex`, `PositionTextureVertex`
+  - `PositionVertex`, `PositionColorVertex`, `PositionTextureVertex`, `PositionTextureColorVertex`, `ComputeSpriteInstance`
 - **LoadShader()** - Runtime shader compilation using ShaderCross:
   1. Reads HLSL source from `Content/Shaders/`
   2. Compiles HLSL to SPIRV via `ShaderCross.CompileSPIRVFromHLSL()`
@@ -52,10 +52,16 @@ Each example is a static class with `Main()` method following this flow:
 ## Key Conventions
 
 - All GPU handles are `IntPtr`; check for `IntPtr.Zero` after creation
-- Use `Marshal.AllocHGlobal/FreeHGlobal` for GPU struct marshaling
-- Shader stage detected from filename convention (`.vert.hlsl`, `.frag.hlsl`)
-- `unsafe` blocks required for GPU pointer operations
+- Use `Marshal.AllocHGlobal/FreeHGlobal` or `SDL.StructureToPointer<T>()` for GPU struct marshaling
+- Shader stage detected from filename convention (`.vert.hlsl`, `.frag.hlsl`, `.comp.hlsl`)
+- `unsafe` blocks required for GPU pointer operations; cast `(nint)(&struct)` for uniform data
+- Use `System.Numerics.Matrix4x4` for matrix math (not custom structs)
 - Project supports Native AOT compilation (`PublishAot: true`)
+
+## Known SDL3-CS Binding Workarounds
+
+- **`CompileComputePipelineFromSPIRV`**: C# binding incorrectly takes `GraphicsShaderMetadata` instead of `ComputePipelineMetadata`. Workaround: direct P/Invoke in `Common.cs`
+- **`DownloadFromGPUBuffer`**: C# binding incorrectly types second parameter as `GPUTextureRegion` instead of `GPUBufferRegion`. Workaround: direct P/Invoke in `CopyAndReadback.cs`
 
 ## Dependencies
 

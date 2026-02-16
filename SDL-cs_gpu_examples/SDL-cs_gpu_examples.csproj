@@ -33,10 +33,4 @@
       </None>
     </ItemGroup>
 
-    <ItemGroup>
-      <Content Include="..\CLAUDE.md">
-        <Link>CLAUDE.md</Link>
-      </Content>
-    </ItemGroup>
-
 </Project>
